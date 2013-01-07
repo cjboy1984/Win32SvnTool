@@ -25,18 +25,14 @@ set BuildDate=%BuildDate:/=-%
 
 set WorkDrv=%CD:~0,2%
 
-set DirListFile=%WorkDrv%\__dlist__.txt
-set DirNumFile=%WorkDrv%\__dnum__.txt
-set SvnFile=%WorkDrv%\__tmp__.txt
+set SvnFile=%WorkDrv%\__svn__.txt
 set DummyFile=%WorkDrv%\__dummy__.txt
 
 echo.
 set /p IBNum=Step 1. Enter IB######## : 
 echo.
-set OutputDir=%WorkDrv%\temp\%BuildDate%-%BuildTime%\%IBNum%
+set OutputDir=%WorkDrv%\temp\%BuildDate%\%IBNum%-%BuildTime%
 
-if exist %DirListFile% del %DirListFile%
-if exist %DirNumFile% del %DirNumFile%
 if exist %SvnFile% del %SvnFile%
 if exist %DummyFile% del %DummyFile%
 if exist %OutputDir% del %OutputDir%
@@ -47,7 +43,7 @@ if not exist %OutputDir%\Original\ mkdir %OutputDir%\Original
 
 call :BrowseDir
 
-REM ;; svn change, read file line by line
+@REM ;; svn change, read file line by line
 echo f > %DummyFile%
 svn status|findstr "^[AMD]" > %SvnFile%
 
@@ -58,20 +54,34 @@ for /f "tokens=*" %%i in (%SvnFile%) do (
   call :ParseResult %%i !FilePath!
 )
 
-echo.
-echo ======================= Result =======================
-type %SvnFile%
-echo ======================================================
-echo.
+@REM ;; find svn:externals diff
+cd %WorkDir%
+
+set FileName=svn-externals.txt
+svn info|findstr "URL:" > __svn.tmp
+for /f "tokens=*" %%r in (__svn.tmp) do ( set "SvnRoot=%%r" )
+set SvnRoot=%SvnRoot:URL: =%
+del __svn.tmp
+
+@svn diff|findstr "svn:externals"
+if errorlevel 0 (
+  svn propget svn:externals . > %OutputDir%\Modify\%FileName%
+  svn propget svn:externals %SvnRoot% > %OutputDir%\Original\%FileName%
+)
 
 del %SvnFile%
 del %DummyFile%
-pause
 exit
 
 :BrowseDir
 cd ..
+set DirListFile=%WorkDrv%\__dlist__.txt
+set DirNumFile=%WorkDrv%\__dnum__.txt
 set Index=0
+
+if exist %DirListFile% del %DirListFile%
+if exist %DirNumFile% del %DirNumFile%
+
 for /f "tokens=*" %%d in ('dir /b /a:d') do (
   set /a Index+=1
   echo [!Index!] %%d >> %DirListFile%
@@ -122,6 +132,8 @@ if not "!FileDir!\!FileName!"=="" (
   
   cd !FileDir!  
   call :GetDirSvnUrl
+  @REM ;; svn export
+  @svn export !SvnUrl!/!FileName! !OutputDir!\Original\!FileDir!
   cd !WorkDir!
 )
 goto :eof
@@ -136,12 +148,9 @@ set FileName=%~nx1
 goto :eof
 
 :GetDirSvnUrl
-REM ;; get svn url
-svn info|grep "URL:" > __svn.tmp
-for /f "tokens=*" %%i in (__svn.tmp) do set "SvnRoot=%%i"
-set SvnRoot=!SvnRoot:URL: =!
+@REM ;; get svn url
+svn info|findstr "URL:" > __svn.tmp
+for /f "tokens=*" %%i in (__svn.tmp) do set "SvnUrl=%%i"
+set SvnUrl=!SvnUrl:URL: =!
 del __svn.tmp
-
-REM ;; svn export
-@svn export !SvnRoot!/!FileName! !OutputDir!\Original\!FileDir!
 goto :eof
