@@ -7,32 +7,51 @@
 @REM ;; You may use a compare tool to check the result like BeyondCompare.
 
 @echo off
+setlocal EnableDelayedExpansion
+
+echo .-----------.
+echo :  SvnTool  :
+echo '-----------'
 
 set PATH=%PATH%;%CD%\bin
 
-set BuildTime=%time:~0,2%-%time:~3,2%-%time:~6,2%
+set BuildTime=%time:~0,5%
 set BuildTime=%BuildTime: =0%
+set BuildTime=%BuildTime::=%
 
-set BuildDate=%date:~6,4%-%date:~0,2%-%date:~3,2%
+set BuildDate=%date:~0,10%
 set BuildDate=%BuildDate: =0%
+set BuildDate=%BuildDate:/=-%
 
-set OutputDir=D:\temp\%BuildDate%\%BuildTime%-IB1216####
-set TmpFile=C:\__tmp__.txt
-set DummyFile=C:\__dummy__.txt
+set WorkDrv=%CD:~0,2%
+
+set DirListFile=%WorkDrv%\__dlist__.txt
+set DirNumFile=%WorkDrv%\__dnum__.txt
+set SvnFile=%WorkDrv%\__tmp__.txt
+set DummyFile=%WorkDrv%\__dummy__.txt
+
+echo.
+set /p IBNum=Step 1. Enter IB######## : 
+echo.
+set OutputDir=%WorkDrv%\temp\%BuildDate%-%BuildTime%\%IBNum%
+
+if exist %DirListFile% del %DirListFile%
+if exist %DirNumFile% del %DirNumFile%
+if exist %SvnFile% del %SvnFile%
+if exist %DummyFile% del %DummyFile%
+if exist %OutputDir% del %OutputDir%
 
 if not exist %OutputDir%\ mkdir %OutputDir%
 if not exist %OutputDir%\Modify\ mkdir %OutputDir%\Modify
 if not exist %OutputDir%\Original\ mkdir %OutputDir%\Original
 
-cd ..
-set WorkDir=%CD%
+call :BrowseDir
 
 REM ;; svn change, read file line by line
-setlocal ENABLEDELAYEDEXPANSION
 echo f > %DummyFile%
-svn status|grep "^[AMD]" > %TmpFile%
+svn status|findstr "^[AMD]" > %SvnFile%
 
-for /f "tokens=*" %%i in (%TmpFile%) do (
+for /f "tokens=*" %%i in (%SvnFile%) do (
   set FilePath=%%i
   set FilePath=!FilePath:~8!
   set FilePath=!FilePath:%CD%\=!
@@ -41,15 +60,41 @@ for /f "tokens=*" %%i in (%TmpFile%) do (
 
 echo.
 echo ======================= Result =======================
-for /f "tokens=*" %%i in (%TmpFile%) do (
-  echo %%i
-)
+type %SvnFile%
 echo ======================================================
 echo.
 
-del %TmpFile%
+del %SvnFile%
 del %DummyFile%
 pause
+exit
+
+:BrowseDir
+cd ..
+set Index=0
+for /f "tokens=*" %%d in ('dir /b /a:d') do (
+  set /a Index+=1
+  echo [!Index!] %%d >> %DirListFile%
+)
+
+echo =========================================
+type %DirListFile%
+echo =========================================
+
+set DirNum=
+set /p DirNum=Step 2. Choose a directory : 
+
+find "[!DirNum!]" < %DirListFile% > %DirNumFile%
+for /f "tokens=*" %%t in (%DirNumFile%) do (
+  set WorkDir=%%t
+  set WorkDir=!WorkDir:[%DirNum%] =!
+)
+cd %WorkDir%
+set WorkDir=%CD%
+
+del %DirListFile%
+del %DirNumFile%
+goto :eof
 
 :ParseResult
 if %1==A (
@@ -71,10 +116,11 @@ goto :eof
 :ExportSvnFile
 call :GetFileDir %1
 call :GetFileName %1
-if not "!FileDir!"=="" (
+
+if not "!FileDir!\!FileName!"=="" (
   @mkdir !OutputDir!\Original\!FileDir!
   
-  cd !FileDir!
+  cd !FileDir!  
   call :GetDirSvnUrl
   cd !WorkDir!
 )
@@ -94,6 +140,7 @@ REM ;; get svn url
 svn info|grep "URL:" > __svn.tmp
 for /f "tokens=*" %%i in (__svn.tmp) do set "SvnRoot=%%i"
 set SvnRoot=!SvnRoot:URL: =!
+del __svn.tmp
 
 REM ;; svn export
 @svn export !SvnRoot!/!FileName! !OutputDir!\Original\!FileDir!
