@@ -1,23 +1,28 @@
-REM ;; Copyright (c) 2004 - 2011, Boy.Wang <cjboy1984@gmail.com>                                   
-REM ;; All rights reserved.
-REM ;; 
-REM ;; README:
-REM ;; It's a tool runing on Win32 compatable system to help you export the changed files and directories based on svn.
-REM ;; It'll create two folders, "Original" for svn head repository and "Modify" for your working copy.
-REM ;; You may use a compare tool to check the result like BeyondCompare.
+@REM ;; Copyright (c) 2004 - 2011, Boy.Wang <cjboy1984@gmail.com>                                   
+@REM ;; All rights reserved.
+@REM ;; 
+@REM ;; README:
+@REM ;; It's a tool runing on Win32 compatable system to help you export the changed files and directories based on svn.
+@REM ;; It'll create two folders, "Original" for svn head repository and "Modify" for your working copy.
+@REM ;; You may use a compare tool to check the result like BeyondCompare.
 
 @echo off
 
 set PATH=%PATH%;%CD%\bin
+
 set BuildTime=%time:~0,2%-%time:~3,2%-%time:~6,2%
+set BuildTime=%BuildTime: =0%
+
 set BuildDate=%date:~6,4%-%date:~0,2%-%date:~3,2%
+set BuildDate=%BuildDate: =0%
+
 set OutputDir=D:\temp\%BuildDate%\%BuildTime%-IB1216####
 set TmpFile=C:\__tmp__.txt
 set DummyFile=C:\__dummy__.txt
 
-if not exist %OutputDir% mkdir %OutputDir%
-if not exist %OutputDir%\Modify mkdir %OutputDir%\Modify
-if not exist %OutputDir%\Original mkdir %OutputDir%\Original
+if not exist %OutputDir%\ mkdir %OutputDir%
+if not exist %OutputDir%\Modify\ mkdir %OutputDir%\Modify
+if not exist %OutputDir%\Original\ mkdir %OutputDir%\Original
 
 cd ..
 set WorkDir=%CD%
