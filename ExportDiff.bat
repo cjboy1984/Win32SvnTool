@@ -1,4 +1,4 @@
-@REM ;; Copyright (c) 2004 - 2011, Boy.Wang <cjboy1984@gmail.com>                                   
+@REM ;; Copyright (c) 2012 - 2022, Boy.Wang <cjboy1984@gmail.com>                                   
 @REM ;; All rights reserved.
 @REM ;; 
 @REM ;; README:
@@ -41,12 +41,18 @@ if not exist %OutputDir%\ mkdir %OutputDir%
 if not exist %OutputDir%\Modify\ mkdir %OutputDir%\Modify
 if not exist %OutputDir%\Original\ mkdir %OutputDir%\Original
 
+cd ..
 call :BrowseDir
+echo ######
+echo %CD%
+echo ######
 
 @REM ;; svn change, read file line by line
 echo f > %DummyFile%
+echo f > %DummyFile%
 svn status|findstr "^[AMD]" > %SvnFile%
 
+@REM ;; export loop
 for /f "tokens=*" %%i in (%SvnFile%) do (
   set FilePath=%%i
   set FilePath=!FilePath:~8!
@@ -71,39 +77,42 @@ if errorlevel 0 (
 
 del %SvnFile%
 del %DummyFile%
+pause
 exit
 
 :BrowseDir
-cd ..
 set DirListFile=%WorkDrv%\__dlist__.txt
 set DirNumFile=%WorkDrv%\__dnum__.txt
 set Index=0
 
 if exist %DirListFile% del %DirListFile%
 if exist %DirNumFile% del %DirNumFile%
-
 for /f "tokens=*" %%d in ('dir /b /a:d') do (
   set /a Index+=1
   echo [!Index!] %%d >> %DirListFile%
 )
 
-echo =========================================
+cls
+echo ## Choose Directory ##
+echo Now : %CD%
+echo ==============================================
 type %DirListFile%
-echo =========================================
+echo ==============================================
 
 set DirNum=
-set /p DirNum=Step 2. Choose a directory : 
-
+set /p DirNum="# Enter > "
 find "[!DirNum!]" < %DirListFile% > %DirNumFile%
 for /f "tokens=*" %%t in (%DirNumFile%) do (
   set WorkDir=%%t
   set WorkDir=!WorkDir:[%DirNum%] =!
 )
-cd %WorkDir%
-set WorkDir=%CD%
+cd "%WorkDir%"
 
-del %DirListFile%
+@REM ;; Find into sub-directory
+if not exist History.txt goto BrowseDir
+
 del %DirNumFile%
+del %DirListFile%
 goto :eof
 
 :ParseResult
@@ -111,11 +120,18 @@ if %1==A (
   if exist "%2%\" (
     @mkdir %OutputDir%\Modify\%3
   ) else (
+    echo ######
+    echo "xcopy %3 %OutputDir%\Modify\%3 < %DummyFile%"
+	echo ######
     @xcopy %3 %OutputDir%\Modify\%3 < %DummyFile%
   )
 )
 if %1==M (
+  echo ######
+  echo "xcopy %3 %OutputDir%\Modify\%3 < %DummyFile%"
+  echo ######
   @xcopy %3 %OutputDir%\Modify\%3 < %DummyFile%
+  
   call :ExportSvnFile %3
 )
 if %1==D (
@@ -130,11 +146,16 @@ call :GetFileName %1
 if not "!FileDir!\!FileName!"=="" (
   @mkdir !OutputDir!\Original\!FileDir!
   
-  cd !FileDir!  
+  pushd !FileDir!
   call :GetDirSvnUrl
+  
   @REM ;; svn export
+  echo ######
+  echo "svn export !SvnUrl!/!FileName! !OutputDir!\Original\!FileDir!"
+  echo ######
   @svn export !SvnUrl!/!FileName! !OutputDir!\Original\!FileDir!
-  cd !WorkDir!
+  
+  popd
 )
 goto :eof
 
